@@ -3,10 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, ShoppingCart, Trash2 } from "lucide-react";
+import { Search, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { getProducts } from "@/services/inventory";
-import { createSale, sendSaleConfirmation, type CartItem } from "@/services/sales";
+import { createSale, sendSaleConfirmation, CartItem } from "@/services/sales";
+import { ProductCard } from "@/components/pos/ProductCard";
+import { CartItemCard } from "@/components/pos/CartItemCard";
 
 const POS = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -17,7 +19,9 @@ const POS = () => {
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: getProducts,
-    onError: () => toast.error("Failed to load products")
+    onSettled: (data, error) => {
+      if (error) toast.error("Failed to load products");
+    }
   });
 
   const createSaleMutation = useMutation({
@@ -170,68 +174,5 @@ const POS = () => {
     </div>
   );
 };
-
-const ProductCard = ({
-  product,
-  onAdd,
-}: {
-  product: { id: string; name: string; price: number; stock: number };
-  onAdd: (product: typeof product) => void;
-}) => (
-  <Card 
-    className={`overflow-hidden cursor-pointer hover:shadow-lg transition-shadow ${
-      product.stock <= 0 ? 'opacity-50' : ''
-    }`}
-    onClick={() => onAdd(product)}
-  >
-    <div className="p-4">
-      <h3 className="font-medium">{product.name}</h3>
-      <p className="text-primary font-bold">₹{product.price}</p>
-      <p className="text-sm text-gray-500">{product.stock} in stock</p>
-    </div>
-  </Card>
-);
-
-const CartItemCard = ({
-  item,
-  onRemove,
-  onUpdateQuantity,
-}: {
-  item: CartItem;
-  onRemove: (id: string) => void;
-  onUpdateQuantity: (id: string, quantity: number) => void;
-}) => (
-  <div className="flex items-center gap-4 py-2 border-b">
-    <div className="flex-1">
-      <h4 className="font-medium">{item.product.name}</h4>
-      <p className="text-sm text-gray-600">₹{item.product.price}</p>
-    </div>
-    <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-      >
-        -
-      </Button>
-      <span className="w-8 text-center">{item.quantity}</span>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-      >
-        +
-      </Button>
-    </div>
-    <Button
-      variant="ghost"
-      size="icon"
-      className="text-red-500"
-      onClick={() => onRemove(item.product.id)}
-    >
-      <Trash2 className="w-4 h-4" />
-    </Button>
-  </div>
-);
 
 export default POS;

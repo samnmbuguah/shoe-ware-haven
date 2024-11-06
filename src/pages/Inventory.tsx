@@ -3,16 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Plus, Search } from "lucide-react";
 import { getProducts } from "@/services/inventory";
+import { ProductTable } from "@/components/inventory/ProductTable";
 import { toast } from "sonner";
 
 const Inventory = () => {
@@ -21,13 +14,10 @@ const Inventory = () => {
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: getProducts,
-    onError: () => toast.error("Failed to load products")
+    onSettled: (data, error) => {
+      if (error) toast.error("Failed to load products");
+    }
   });
-
-  const filteredProducts = products?.filter(product =>
-    product.name.toLowerCase().includes(search.toLowerCase()) ||
-    product.category.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-6">
@@ -53,48 +43,11 @@ const Inventory = () => {
           <Button variant="outline">Filter</Button>
         </div>
 
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : filteredProducts?.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.category}</TableCell>
-                  <TableCell>{product.stock}</TableCell>
-                  <TableCell>₹{product.price}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-sm ${
-                        product.stock > 10
-                          ? "bg-green-100 text-green-800"
-                          : product.stock > 0
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {product.stock > 10 ? "In Stock" : product.stock > 0 ? "Low Stock" : "Out of Stock"}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ProductTable 
+          products={products}
+          isLoading={isLoading}
+          search={search}
+        />
       </Card>
     </div>
   );
