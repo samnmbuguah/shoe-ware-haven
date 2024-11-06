@@ -1,50 +1,93 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-}
+import { getProducts } from "@/services/inventory";
+import { createSale, sendSaleConfirmation, type CartItem } from "@/services/sales";
 
 const POS = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const queryClient = useQueryClient();
 
-  const addToCart = (product: { id: number; name: string; price: number }) => {
+  const { data: products, isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: getProducts,
+    onError: () => toast.error("Failed to load products")
+  });
+
+  const createSaleMutation = useMutation({
+    mutationFn: async () => {
+      const sale = await createSale(cart, customerPhone);
+      if (customerPhone) {
+        await sendSaleConfirmation(sale.id, customerPhone);
+      }
+      return sale;
+    },
+    onSuccess: () => {
+      toast.success("Sale completed successfully!");
+      setCart([]);
+      setCustomerPhone("");
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => {
+      toast.error("Failed to process sale");
+    }
+  });
+
+  const filteredProducts = products?.filter(product =>
+    product.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const addToCart = (product: typeof products[0]) => {
+    if (product.stock <= 0) {
+      toast.error("Product out of stock");
+      return;
+    }
+    
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id);
+      const existing = current.find((item) => item.product.id === product.id);
       if (existing) {
+        if (existing.quantity >= product.stock) {
+          toast.error("Not enough stock");
+          return current;
+        }
         return current.map((item) =>
-          item.id === product.id
+          item.product.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...current, { ...product, quantity: 1 }];
+      return [...current, { product, quantity: 1 }];
     });
     toast.success(`Added ${product.name} to cart`);
   };
 
-  const removeFromCart = (id: number) => {
-    setCart((current) => current.filter((item) => item.id !== id));
+  const removeFromCart = (id: string) => {
+    setCart((current) => current.filter((item) => item.product.id !== id));
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity < 1) return;
     setCart((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, quantity: quantity } : item
-      )
+      current.map((item) => {
+        if (item.product.id === id) {
+          if (quantity > item.product.stock) {
+            toast.error("Not enough stock");
+            return item;
+          }
+          return { ...item, quantity };
+        }
+        return item;
+      })
     );
   };
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   return (
     <div className="grid md:grid-cols-[1fr,400px] gap-6">
@@ -61,35 +104,19 @@ const POS = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <ProductCard
-            product={{
-              id: 1,
-              name: "Nike Air Max",
-              price: 8500,
-              image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500",
-            }}
-            onAdd={addToCart}
-          />
-          <ProductCard
-            product={{
-              id: 2,
-              name: "Cotton Briefs L",
-              price: 450,
-              image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500",
-            }}
-            onAdd={addToCart}
-          />
-          <ProductCard
-            product={{
-              id: 3,
-              name: "Sports Socks",
-              price: 250,
-              image: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=500",
-            }}
-            onAdd={addToCart}
-          />
-        </div>
+        {isLoading ? (
+          <div className="text-center py-8">Loading...</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredProducts?.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAdd={addToCart}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <Card className="p-4 h-[calc(100vh-2rem)] flex flex-col">
@@ -98,10 +125,18 @@ const POS = () => {
           <h2 className="text-lg font-semibold">Current Sale</h2>
         </div>
 
+        <Input
+          type="tel"
+          placeholder="Customer Phone (optional)"
+          value={customerPhone}
+          onChange={(e) => setCustomerPhone(e.target.value)}
+          className="mb-4"
+        />
+
         <div className="flex-1 overflow-auto">
           {cart.map((item) => (
             <CartItemCard
-              key={item.id}
+              key={item.product.id}
               item={item}
               onRemove={removeFromCart}
               onUpdateQuantity={updateQuantity}
@@ -122,8 +157,13 @@ const POS = () => {
             <span>Total</span>
             <span>₹{(total * 1.18).toFixed(2)}</span>
           </div>
-          <Button className="w-full" size="lg">
-            Complete Sale
+          <Button 
+            className="w-full" 
+            size="lg"
+            disabled={cart.length === 0 || createSaleMutation.isPending}
+            onClick={() => createSaleMutation.mutate()}
+          >
+            {createSaleMutation.isPending ? "Processing..." : "Complete Sale"}
           </Button>
         </div>
       </Card>
@@ -135,19 +175,19 @@ const ProductCard = ({
   product,
   onAdd,
 }: {
-  product: { id: number; name: string; price: number; image: string };
-  onAdd: (product: { id: number; name: string; price: number }) => void;
+  product: { id: string; name: string; price: number; stock: number };
+  onAdd: (product: typeof product) => void;
 }) => (
-  <Card className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-        onClick={() => onAdd(product)}>
-    <img
-      src={product.image}
-      alt={product.name}
-      className="w-full h-40 object-cover"
-    />
+  <Card 
+    className={`overflow-hidden cursor-pointer hover:shadow-lg transition-shadow ${
+      product.stock <= 0 ? 'opacity-50' : ''
+    }`}
+    onClick={() => onAdd(product)}
+  >
     <div className="p-4">
       <h3 className="font-medium">{product.name}</h3>
       <p className="text-primary font-bold">₹{product.price}</p>
+      <p className="text-sm text-gray-500">{product.stock} in stock</p>
     </div>
   </Card>
 );
@@ -158,19 +198,19 @@ const CartItemCard = ({
   onUpdateQuantity,
 }: {
   item: CartItem;
-  onRemove: (id: number) => void;
-  onUpdateQuantity: (id: number, quantity: number) => void;
+  onRemove: (id: string) => void;
+  onUpdateQuantity: (id: string, quantity: number) => void;
 }) => (
   <div className="flex items-center gap-4 py-2 border-b">
     <div className="flex-1">
-      <h4 className="font-medium">{item.name}</h4>
-      <p className="text-sm text-gray-600">₹{item.price}</p>
+      <h4 className="font-medium">{item.product.name}</h4>
+      <p className="text-sm text-gray-600">₹{item.product.price}</p>
     </div>
     <div className="flex items-center gap-2">
       <Button
         variant="outline"
         size="icon"
-        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+        onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
       >
         -
       </Button>
@@ -178,7 +218,7 @@ const CartItemCard = ({
       <Button
         variant="outline"
         size="icon"
-        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+        onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
       >
         +
       </Button>
@@ -187,7 +227,7 @@ const CartItemCard = ({
       variant="ghost"
       size="icon"
       className="text-red-500"
-      onClick={() => onRemove(item.id)}
+      onClick={() => onRemove(item.product.id)}
     >
       <Trash2 className="w-4 h-4" />
     </Button>

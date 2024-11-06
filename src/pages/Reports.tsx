@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -14,13 +16,94 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getSales } from "@/services/sales";
+import { toast } from "sonner";
 
 const Reports = () => {
+  const [period, setPeriod] = useState("today");
+
+  const getDateRange = () => {
+    const end = new Date();
+    const start = new Date();
+    switch (period) {
+      case "week":
+        start.setDate(start.getDate() - 7);
+        break;
+      case "month":
+        start.setMonth(start.getMonth() - 1);
+        break;
+      case "year":
+        start.setFullYear(start.getFullYear() - 1);
+        break;
+      default: // today
+        start.setHours(0, 0, 0, 0);
+        break;
+    }
+    return { start, end };
+  };
+
+  const { data: sales, isLoading } = useQuery({
+    queryKey: ['sales', period],
+    queryFn: () => {
+      const { start, end } = getDateRange();
+      return getSales(start, end);
+    },
+    onError: () => toast.error("Failed to load sales data")
+  });
+
+  const calculateStats = () => {
+    if (!sales) return { topProducts: [], categories: [], totalRevenue: 0 };
+
+    const productMap = new Map();
+    const categoryMap = new Map();
+    let totalRevenue = 0;
+
+    sales.forEach(sale => {
+      totalRevenue += sale.total_amount;
+      sale.sale_items.forEach((item: any) => {
+        const product = item.products;
+        const revenue = item.price_at_time * item.quantity;
+
+        // Update product stats
+        const productStats = productMap.get(product.id) || {
+          name: product.name,
+          sales: 0,
+          revenue: 0
+        };
+        productStats.sales += item.quantity;
+        productStats.revenue += revenue;
+        productMap.set(product.id, productStats);
+
+        // Update category stats
+        const categoryStats = categoryMap.get(product.category) || {
+          name: product.category,
+          sales: 0,
+          revenue: 0
+        };
+        categoryStats.sales += item.quantity;
+        categoryStats.revenue += revenue;
+        categoryMap.set(product.category, categoryStats);
+      });
+    });
+
+    return {
+      topProducts: Array.from(productMap.values())
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 3),
+      categories: Array.from(categoryMap.values())
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 3),
+      totalRevenue
+    };
+  };
+
+  const { topProducts, categories, totalRevenue } = calculateStats();
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Reports</h1>
-        <Select defaultValue="today">
+        <Select value={period} onValueChange={setPeriod}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select period" />
           </SelectTrigger>
@@ -37,48 +120,30 @@ const Reports = () => {
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Top Selling Products</h2>
           <div className="space-y-4">
-            <ProductStat
-              name="Nike Air Max"
-              sales={42}
-              revenue="₹3,57,000"
-              growth="+15%"
-            />
-            <ProductStat
-              name="Cotton Briefs L"
-              sales={38}
-              revenue="₹17,100"
-              growth="+8%"
-            />
-            <ProductStat
-              name="Sports Socks"
-              sales={35}
-              revenue="₹8,750"
-              growth="+12%"
-            />
+            {topProducts.map((product, index) => (
+              <ProductStat
+                key={index}
+                name={product.name}
+                sales={product.sales}
+                revenue={`₹${product.revenue.toFixed(2)}`}
+                growth="+15%" // This would need real historical data to calculate
+              />
+            ))}
           </div>
         </Card>
 
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Category Performance</h2>
           <div className="space-y-4">
-            <CategoryStat
-              name="Shoes"
-              sales={125}
-              revenue="₹8,75,000"
-              growth="+20%"
-            />
-            <CategoryStat
-              name="Innerwear"
-              sales={250}
-              revenue="₹1,12,500"
-              growth="+5%"
-            />
-            <CategoryStat
-              name="Socks"
-              sales={180}
-              revenue="₹45,000"
-              growth="+10%"
-            />
+            {categories.map((category, index) => (
+              <CategoryStat
+                key={index}
+                name={category.name}
+                sales={category.sales}
+                revenue={`₹${category.revenue.toFixed(2)}`}
+                growth="+10%" // This would need real historical data to calculate
+              />
+            ))}
           </div>
         </Card>
       </div>
@@ -96,27 +161,24 @@ const Reports = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TransactionRow
-              id="TRX001"
-              date="2024-03-15"
-              items={3}
-              amount="₹12,500"
-              status="Completed"
-            />
-            <TransactionRow
-              id="TRX002"
-              date="2024-03-15"
-              items={2}
-              amount="₹8,900"
-              status="Completed"
-            />
-            <TransactionRow
-              id="TRX003"
-              date="2024-03-14"
-              items={1}
-              amount="₹4,500"
-              status="Completed"
-            />
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : (
+              sales?.slice(0, 5).map((sale) => (
+                <TransactionRow
+                  key={sale.id}
+                  id={sale.id}
+                  date={new Date(sale.created_at).toLocaleDateString()}
+                  items={sale.sale_items.length}
+                  amount={`₹${sale.total_amount.toFixed(2)}`}
+                  status="Completed"
+                />
+              ))
+            )}
           </TableBody>
         </Table>
       </Card>

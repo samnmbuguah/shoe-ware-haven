@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Search } from "lucide-react";
+import { getProducts } from "@/services/inventory";
+import { toast } from "sonner";
 
 const Inventory = () => {
   const [search, setSearch] = useState("");
+
+  const { data: products, isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: getProducts,
+    onError: () => toast.error("Failed to load products")
+  });
+
+  const filteredProducts = products?.filter(product =>
+    product.name.toLowerCase().includes(search.toLowerCase()) ||
+    product.category.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -51,34 +65,33 @@ const Inventory = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <ProductRow
-                name="Nike Air Max"
-                category="Shoes"
-                stock={15}
-                price="₹8,500"
-                status="In Stock"
-              />
-              <ProductRow
-                name="Cotton Briefs L"
-                category="Innerwear"
-                stock={8}
-                price="₹450"
-                status="Low Stock"
-              />
-              <ProductRow
-                name="Sports Socks"
-                category="Socks"
-                stock={45}
-                price="₹250"
-                status="In Stock"
-              />
-              <ProductRow
-                name="Running Shoes"
-                category="Shoes"
-                stock={0}
-                price="₹6,500"
-                status="Out of Stock"
-              />
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : filteredProducts?.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>{product.category}</TableCell>
+                  <TableCell>{product.stock}</TableCell>
+                  <TableCell>₹{product.price}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded-full text-sm ${
+                        product.stock > 10
+                          ? "bg-green-100 text-green-800"
+                          : product.stock > 0
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {product.stock > 10 ? "In Stock" : product.stock > 0 ? "Low Stock" : "Out of Stock"}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -86,39 +99,5 @@ const Inventory = () => {
     </div>
   );
 };
-
-const ProductRow = ({
-  name,
-  category,
-  stock,
-  price,
-  status,
-}: {
-  name: string;
-  category: string;
-  stock: number;
-  price: string;
-  status: string;
-}) => (
-  <TableRow>
-    <TableCell className="font-medium">{name}</TableCell>
-    <TableCell>{category}</TableCell>
-    <TableCell>{stock}</TableCell>
-    <TableCell>{price}</TableCell>
-    <TableCell>
-      <span
-        className={`px-2 py-1 rounded-full text-sm ${
-          status === "In Stock"
-            ? "bg-green-100 text-green-800"
-            : status === "Low Stock"
-            ? "bg-yellow-100 text-yellow-800"
-            : "bg-red-100 text-red-800"
-        }`}
-      >
-        {status}
-      </span>
-    </TableCell>
-  </TableRow>
-);
 
 export default Inventory;
