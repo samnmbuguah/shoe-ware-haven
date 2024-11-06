@@ -19,8 +19,11 @@ const POS = () => {
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: getProducts,
-    onSettled: (data, error) => {
-      if (error) toast.error("Failed to load products");
+    onSuccess: () => {
+      // Handle success if needed
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to load products");
     }
   });
 

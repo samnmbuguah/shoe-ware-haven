@@ -42,8 +42,11 @@ const Reports = () => {
       const { start, end } = getDateRange();
       return getSales(start, end);
     },
-    onSettled: (data, error) => {
-      if (error) toast.error("Failed to load sales data");
+    onSuccess: () => {
+      // Handle success if needed
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to load sales data");
     }
   });
 

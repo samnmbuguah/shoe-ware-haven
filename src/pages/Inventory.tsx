@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 import { getProducts } from "@/services/inventory";
 import { ProductTable } from "@/components/inventory/ProductTable";
-import { toast } from "sonner";
 
 const Inventory = () => {
   const [search, setSearch] = useState("");
@@ -14,8 +14,11 @@ const Inventory = () => {
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: getProducts,
-    onSettled: (data, error) => {
-      if (error) toast.error("Failed to load products");
+    onSuccess: () => {
+      // Handle success if needed
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to load products");
     }
   });
 
