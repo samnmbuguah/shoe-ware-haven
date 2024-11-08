@@ -18,13 +18,7 @@ const POS = () => {
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: getProducts,
-    onSuccess: () => {
-      // Handle success if needed
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to load products");
-    }
+    queryFn: getProducts
   });
 
   const createSaleMutation = useMutation({
