@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Database } from "@/integrations/supabase/types";
+
+type UserRole = Database['public']['Enums']['user_role'];
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  userRole: string | null;
+  userRole: UserRole | null;
   signOut: () => Promise<void>;
 }
 
@@ -21,7 +24,7 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,9 +55,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     const { data, error } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
       .single();
 
     if (error) {
