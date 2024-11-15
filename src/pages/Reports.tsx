@@ -41,11 +41,13 @@ const Reports = () => {
     queryFn: () => {
       const { start, end } = getDateRange();
       return getSales(start, end);
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to load sales data");
     }
   });
+
+  // Show error toast if the query fails
+  if (sales === undefined && !isLoading) {
+    toast.error("Failed to load sales data");
+  }
 
   const { topProducts, categories } = calculateStats(sales);
 
