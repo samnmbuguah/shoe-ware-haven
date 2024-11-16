@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export const LoginForm = () => {
   const navigate = useNavigate();
@@ -16,6 +17,21 @@ export const LoginForm = () => {
     if (session) {
       navigate(from, { replace: true });
     }
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate(from, { replace: true });
+        toast.success('Successfully signed in!');
+      }
+      if (event === 'SIGNED_OUT') {
+        toast.success('Signed out successfully');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [session, navigate, from]);
 
   return (
@@ -27,10 +43,23 @@ export const LoginForm = () => {
         </div>
         <Auth
           supabaseClient={supabase}
-          appearance={{ theme: ThemeSupa }}
+          appearance={{ 
+            theme: ThemeSupa,
+            variables: {
+              default: {
+                colors: {
+                  brand: '#000000',
+                  brandAccent: '#333333',
+                }
+              }
+            }
+          }}
           theme="light"
           providers={[]}
           redirectTo={`${window.location.origin}/reset-password`}
+          onError={(error) => {
+            toast.error(error.message);
+          }}
         />
       </Card>
     </div>

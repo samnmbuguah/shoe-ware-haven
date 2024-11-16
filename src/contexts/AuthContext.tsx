@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         fetchUserRole(session.user.id);
       }
+      setLoading(false);
     });
 
     // Listen for auth changes
@@ -61,24 +63,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching user role:', error);
-        toast.error("Error fetching user role");
-        return;
-      }
+      if (error) throw error;
 
       if (!data) {
-        console.error('No profile found for user');
-        toast.error("No profile found for user");
-        // Sign out the user if no profile is found
-        await signOut();
+        // Create a new profile if one doesn't exist
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([{ id: userId, role: 'salesperson' }]);
+
+        if (insertError) throw insertError;
+        setUserRole('salesperson');
         return;
       }
 
       setUserRole(data.role);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in fetchUserRole:', error);
-      toast.error("Error fetching user role");
+      toast.error(error.message || "Error fetching user role");
     }
   };
 
@@ -87,10 +88,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await supabase.auth.signOut();
       navigate("/login");
       toast.success("Signed out successfully");
-    } catch (error) {
-      toast.error("Error signing out");
+    } catch (error: any) {
+      toast.error(error.message || "Error signing out");
     }
   };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <AuthContext.Provider value={{ session, user, userRole, signOut }}>
