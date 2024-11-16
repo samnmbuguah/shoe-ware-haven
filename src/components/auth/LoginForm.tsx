@@ -16,6 +16,7 @@ export const LoginForm = () => {
           appearance={{ theme: ThemeSupa }}
           theme="light"
           providers={[]}
+          redirectTo={`${window.location.origin}/reset-password`}
         />
       </Card>
     </div>

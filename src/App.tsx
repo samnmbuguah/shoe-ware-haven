@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { LoginForm } from "@/components/auth/LoginForm";
+import ResetPassword from "./pages/ResetPassword";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
@@ -18,6 +19,7 @@ const App = () => (
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginForm />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             element={
               <RequireAuth>
