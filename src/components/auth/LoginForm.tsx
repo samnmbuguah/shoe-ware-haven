@@ -27,6 +27,12 @@ export const LoginForm = () => {
       if (event === 'SIGNED_OUT') {
         toast.success('Signed out successfully');
       }
+      if (event === 'USER_UPDATED') {
+        toast.success('Account updated successfully');
+      }
+      if (event === 'PASSWORD_RECOVERY') {
+        toast.info('Password recovery email sent');
+      }
     });
 
     return () => {
@@ -57,9 +63,6 @@ export const LoginForm = () => {
           theme="light"
           providers={[]}
           redirectTo={`${window.location.origin}/reset-password`}
-          onError={(error) => {
-            toast.error(error.message);
-          }}
         />
       </Card>
     </div>
