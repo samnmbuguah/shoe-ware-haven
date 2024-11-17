@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
 export interface Product {
   id: string;
@@ -19,33 +19,10 @@ export const getProducts = async () => {
   return data as Product[];
 };
 
-export const addProduct = async (product: Omit<Product, 'id' | 'created_at'>) => {
+export const updateStock = async (id: string, stock: number) => {
   const { data, error } = await supabase
     .from('products')
-    .insert(product)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data as Product;
-};
-
-export const updateProduct = async (id: string, updates: Partial<Product>) => {
-  const { data, error } = await supabase
-    .from('products')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data as Product;
-};
-
-export const updateStock = async (id: string, quantity: number) => {
-  const { data, error } = await supabase
-    .from('products')
-    .update({ stock: quantity })
+    .update({ stock })
     .eq('id', id)
     .select()
     .single();

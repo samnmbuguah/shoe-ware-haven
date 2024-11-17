@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { getProducts } from "@/services/inventory";
-import { createSale, sendSaleConfirmation, CartItem } from "@/services/sales";
+import { createSale, CartItem } from "@/services/sales";
 import { ProductCard } from "@/components/pos/ProductCard";
 import { CartItemCard } from "@/components/pos/CartItemCard";
 
@@ -24,9 +24,6 @@ const POS = () => {
   const createSaleMutation = useMutation({
     mutationFn: async () => {
       const sale = await createSale(cart, customerPhone);
-      if (customerPhone) {
-        await sendSaleConfirmation(sale.id, customerPhone);
-      }
       return sale;
     },
     onSuccess: () => {
